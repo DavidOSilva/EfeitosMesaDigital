@@ -56,7 +56,7 @@ SECTIONS
    /* Secondary system stack      */             
    .sysstack >  DARAM align(32) fill = 00h 
    /* CSL data                    */               
-   .csldata  >  DARAM align(32) fill = 00h
+   .csldata  >  DARAM align(64) fill = 00h
    /* Initialized vars            */
    .data     >  DARAM align(32) fill = 00h 
     /* Global & static vars        */               
@@ -75,9 +75,11 @@ SECTIONS
    .cio      >  DARAM align(32) fill = 00h   
     /* Arguments to main()         */           
    .args     >  DARAM align(32) fill = 00h           
-       
+
 	/* interrupt vector table must be on 256 "page" boundry*/
-	vectors:  >  VECS
+	.vectors:  >  VECS
+
+	dmaTest    >  DARAM align(32) fill = 00h
 
    .ioport   >  IOPORT PAGE 2         /* Global & static ioport vars */
 }

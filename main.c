@@ -37,7 +37,7 @@
 // *                                                                          
 //////////////////////////////////////////////////////////////////////////////
 
-#include "stdio.h"
+#include <stdio.h>
 #include "ezdsp5502.h"
 #include "ezdsp5502_i2cgpio.h"
 #include "csl_gpio.h"
@@ -47,13 +47,9 @@ extern Int16 aic3204_test( );
 
 extern void lcdPage0( );
 extern void lcdPage1( );
-extern void startTimer0();
-extern void initTimer0();
 int  TestFail    = (int)-1;
-extern Uint16 timerFlag;
 extern void initPLL(void);
 extern void configAic3204();
-extern void aic3204_tone_headphone();
 extern void aic3204_loop_linein( );
 extern void disableAic3204();
 extern void inputAic3204Config();
@@ -61,6 +57,7 @@ extern void initAic3204();
 extern void configAudioDma();
 extern void startAudioDma();
 extern void stopAudioDma();
+
 typedef enum{
     effect3 = 3,
     effect6 = 6,
@@ -81,7 +78,6 @@ typedef enum{
 state currentStateEffect = effect3;
 stateSelection currentStateSelection = notSelected;
 
-void checkTimer(void);
 void checkSwitch(void);
 void executeStateSelection(){
 
@@ -118,15 +114,6 @@ void transitionEffect(){
     }
 }
 
-void checkTimer(void)
-{
-    if(timerFlag == 1)
-    {
-        checkSwitch();
-        printf("timer0 \n");
-    }
-}
-
 void checkSwitch(){
 
     if(!EZDSP5502_I2CGPIO_readLine(SW0)){
@@ -143,8 +130,6 @@ void main( void )
     /* Initialize BSL */
     //initPLL( );
     EZDSP5502_init( );
-    //initTimer0( );
-    //  startTimer0();
     EZDSP5502_I2CGPIO_configLine(  SW0, IN );
     EZDSP5502_I2CGPIO_configLine(  SW1, IN );
 
@@ -155,21 +140,20 @@ void main( void )
 
     inputAic3204Config(); //configuração inicial do codec 3204
 
-    configAudioDma( );  // Configure DMA for Audio tone
-    startAudioDma ();
+    configAudioDma();  // Configure DMA for Audio tone
+    startAudioDma();
 
       /* Start Demo */
               // Start DMA to service McBSP
 
-
     while (1){
 
         checkSwitch(); //checa se algum botão foi pressionado
-        //checkTimer();
 
         if(currentStateSelection == selected){
-           // executeStateSelection(); //executa a captura do áudio com amostragem específica
+           //executeStateSelection(); //executa a captura do áudio com amostragem específica
         }
+
     }
 
 }

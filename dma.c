@@ -36,6 +36,7 @@
 // *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.    
 // *                                                                          
 //////////////////////////////////////////////////////////////////////////////
+#include <stdio.h>
 #include"ezdsp5502.h"
 #include"ezdsp5502_mcbsp.h"
 #include "csl_dma.h"
@@ -44,14 +45,14 @@
 Uint8 dmaState = 0;
 
 //---------Global constants---------
-#define N 512
+#define N 6
 
 //---------Global data definition---------
 
 /* Define transmit and receive buffers */
-#pragma DATA_SECTION(transmition,".cio")
+#pragma DATA_SECTION(transmition,"dmaTest")
 Int16 transmition[N];
-#pragma DATA_SECTION(reception,".cio")
+#pragma DATA_SECTION(reception,"dmaTest")
 Int16 reception[N];
 
 Uint16 xmtEventId, rcvEventId;
@@ -92,7 +93,7 @@ DMA_Config dmaTxConfig = {
         DMA_DMACICR_AERRIE_OFF,        // Sem interrupção por erro de acesso
         DMA_DMACICR_BLOCKIE_OFF,       // Sem interrupção de bloco completo
         DMA_DMACICR_LASTIE_OFF,        // Sem interrupção de último quadro
-        DMA_DMACICR_FRAMEIE_ON,       // Sem interrupção de quadro completo
+        DMA_DMACICR_FRAMEIE_OFF,       // Sem interrupção de quadro completo
         DMA_DMACICR_FIRSTHALFIE_OFF,   // Sem interrupção de primeira metade
         DMA_DMACICR_DROPIE_OFF,        // Sem interrupção por evento descartado
         DMA_DMACICR_TIMEOUTIE_OFF      // Sem interrupção por tempo esgotado
@@ -101,7 +102,7 @@ DMA_Config dmaTxConfig = {
     0,                                 // Endereço superior da origem
     (DMA_AdrPtr)(MCBSP_ADDR(DXR11)),   // Endereço de destino (registrador DXR)
     0,                                 // Endereço superior do destino
-    96,                                // Número de elementos por quadro
+    N,                                 // Número de elementos por quadro
     1,                                 // Número de quadros
     0,                                 // Índice de quadro da origem
     0,                                 // Índice de elemento da origem
@@ -128,14 +129,14 @@ DMA_Config dmaRxConfig = {
         DMA_DMACCR_REPEAT_ALWAYS,     // Sem repetição automática
         DMA_DMACCR_AUTOINIT_ON,        // Auto inicialização ligada
         DMA_DMACCR_EN_STOP,            // Desabilitado inicialmente
-        DMA_DMACCR_PRIO_HI,            // Alta prioridade
+        DMA_DMACCR_PRIO_LOW,            // Alta prioridade
         DMA_DMACCR_FS_DISABLE,         // Sincronização por elemento
         DMA_DMACCR_SYNC_REVT1          // Sincronizar com o evento de recepção (REVT)
     ),
     DMA_DMACICR_RMK(
         DMA_DMACICR_AERRIE_OFF,        // Sem interrupção por erro de acesso
         DMA_DMACICR_BLOCKIE_OFF,       // Sem interrupção de bloco completo
-        DMA_DMACICR_LASTIE_OFF,        // Sem interrupção de último quadro
+        DMA_DMACICR_LASTIE_ON,        // Sem interrupção de último quadro
         DMA_DMACICR_FRAMEIE_OFF,       // Sem interrupção de quadro completo
         DMA_DMACICR_FIRSTHALFIE_OFF,   // Sem interrupção de primeira metade
         DMA_DMACICR_DROPIE_OFF,        // Sem interrupção por evento descartado
@@ -145,7 +146,7 @@ DMA_Config dmaRxConfig = {
     0,                                 // Endereço superior da origem
     (DMA_AdrPtr)&reception,    // Endereço de destino (memória de áudio)
     0,                                 // Endereço superior do destino
-    96,                                // Número de elementos por quadro
+    N,                                // Número de elementos por quadro
     1,                                 // Número de quadros
     0,                                 // Índice de quadro da origem
     0,                                 // Índice de elemento da origem
@@ -154,17 +155,72 @@ DMA_Config dmaRxConfig = {
 };
 
 DMA_Handle dmaReception, dmaTransmition;
+volatile Uint16 transferComplete = FALSE;
+
+#define DELAY 512                 // Tamanho do buffer de atraso (em amostras)
+Int16 delayBuffer[DELAY] = {0};   // Buffer circular para o atraso
+Int16 delayIndex = 0;
+
+// Função para aplicar o efeito de reverberação
+void aplicarReverb(Int16 *buffer, int tamanho) {
+    Int16 i;
+    for (i = 0; i < tamanho; i++) {
+        // Amostra atrasada obtida do buffer circular
+        Int16 delayedSample = delayBuffer[delayIndex];
+
+        // Combina a amostra atual com a amostra atrasada
+        buffer[i] += delayedSample / 1.5;  // Divisão por 2 para criar o efeito de reverb
+
+        // Atualiza o buffer de atraso com a amostra atual
+        delayBuffer[delayIndex] = buffer[i];
+
+        // Atualiza o índice circular
+        delayIndex = (delayIndex + 1) % DELAY;
+    }
+}
+
+void aplicarVozFina(Int16 *buffer, int tamanho, float fatorAceleracao) {
+    Int16 i;
+    for (i = 0; i < tamanho; i++) {
+        // Calcula o novo índice baseado no fator de aceleração
+        int novoIndice = (int)(i * fatorAceleracao);
+
+        // Se o novo índice ultrapassar o tamanho do buffer, então ignora
+        if (novoIndice < tamanho) {
+            buffer[i] = buffer[novoIndice];
+        } else {
+            buffer[i] = 0; // Preenche com 0 (silêncio) para evitar ler fora do buffer
+        }
+    }
+}
 
 interrupt void dmaXmtIsr(void) {
-   DMA_stop(dmaTransmition);
-   IRQ_disable(xmtEventId);
+    //DMA_stop(dmaTransmition);      // Para a operação de transmissão do DMA.
+    //IRQ_disable(xmtEventId);       // Desabilita o evento de interrupção da transmissão.
+    //IRQ_enable(xmtEventId);
+    //DMA_start(dmaTransmition);
+    //printf("transmissao \n");
 }
 
 interrupt void dmaRcvIsr(void) {
-   // printf("andre é gay");
-   //DMA_stop(dmaReception);
-   IRQ_disable(rcvEventId);
- //  transferComplete = TRUE;
+     //DMA_stop(dmaReception);        // Para a operação de recepção do DMA.
+    IRQ_disable(rcvEventId);       // Desabilita o evento de interrupção da recepção.
+
+    /*
+    aplicarVozFina(reception, N, 1.2);
+    */
+
+    Int16 i;
+    for (i = 0; i < N; i++) { // Copia os dados processados para o buffer de transmissão
+        transmition[i] = reception[i];
+    }
+
+    /*
+    //DMA_start(dmaTransmition);
+    */
+    transferComplete = TRUE;
+    DMA_start(dmaReception);
+    IRQ_enable(rcvEventId);
 }
 
 /* Define a DMA_Handle object to be used with DMA_open function */
@@ -175,6 +231,8 @@ interrupt void dmaRcvIsr(void) {
  */
 void configAudioDma (void)
 {
+    CSL_init();
+
     int i = 0;
     for (i = 0; i <= N - 1; i++) {
            transmition[i] =  0;
@@ -182,11 +240,11 @@ void configAudioDma (void)
 
        }
 
-   // IRQ_setVecs((Uint32)(&VECSTART));
+    IRQ_setVecs((Uint32)(&VECSTART));
 
 
     /* Set source address to Sine_1K */
-    dmaTxConfig.dmacssal = (DMA_AdrPtr)(((Uint32)&reception) << 1); //origem informação armazenada
+    dmaTxConfig.dmacssal = (DMA_AdrPtr)(((Uint32)&transmition) << 1); //origem informação armazenada
     dmaTxConfig.dmacdsal = (DMA_AdrPtr)(((Uint32)MCBSP_ADDR(DXR11)) << 1); // enviado para saida mcbsp ouvir(destino)
 
 
@@ -214,11 +272,11 @@ void configAudioDma (void)
     IRQ_clear(rcvEventId);
 
     /* Enable DMA interrupt in IER register */
-   // IRQ_enable(xmtEventId);
+    IRQ_enable(xmtEventId);
     IRQ_enable(rcvEventId);
 
     /* Place DMA interrupt service addresses at associate vector */
-  //  IRQ_plug(xmtEventId,&dmaXmtIsr);
+    IRQ_plug(xmtEventId,&dmaXmtIsr);
     IRQ_plug(rcvEventId,&dmaRcvIsr);
 
 
@@ -232,15 +290,7 @@ void configAudioDma (void)
  *    Start DMA transfer for Audio
  */
 
-void applyAudioEffect(void)
-{
-    int i;
-    for (i = 0; i < N; i++) {
-        // Inverter a amplitude do áudio para um efeito simples
-        reception[i] = -reception[i];  // Inverte os valores de áudio
-    }
-}
-
+Int16 testWhile = 0;
 void startAudioDma (void)
 {
     DMA_start(dmaReception); // Begin Transfer
@@ -248,9 +298,12 @@ void startAudioDma (void)
 
     EZDSP5502_MCBSP_init( );
 
-   // applyAudioEffect();
+    /* Wait for DMA transfer to be complete */
 
 
+    while (!transferComplete){
+        testWhile = 2;
+    }
 }
 
 /*
@@ -270,4 +323,3 @@ void stopAudioDma (void)
  *
  *    Swap between 1KHz and 2KHz audio tones
  */
-
