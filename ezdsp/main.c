@@ -3,43 +3,27 @@
 #include "ezdsp5502.h"
 #include "ezdsp5502_i2cgpio.h"
 #include "csl_gpio.h"
-
+#include <math.h>
+#include "configs.h"
 
 extern void lcdPage0( );
 extern void lcdPage1( );
-
 extern void disableAic3204();
 extern void inputAic3204Config();
 extern void initAic3204();
-
 extern void configAudioDma();
 extern void startAudioDma();
 extern void stopAudioDma();
+extern void initPLL(void);
 
-typedef enum{
-    effect3 = 3,
-    effect6 = 6,
-    effect9 = 9,
-    effect12 = 12,
-    effect15 = 15,
-    effect18 = 18,
-    effect21 = 21,
-    effect24 = 24
-
-}state;
-
-typedef enum{
-    notSelected = 0,
-    selected = 1
-}stateSelection;
+void checkSwitch(void);
 
 state currentStateEffect = effect3;
 stateSelection currentStateSelection = notSelected;
 
-void checkSwitch(void);
 void executeStateSelection(){
 
-    startAudioDma();
+    startAudioDma(currentStateEffect);
 }
 void transitionSelection(){
     if( currentStateSelection == selected){
@@ -82,22 +66,22 @@ void checkSwitch(){
 
     }
 }
+
 void main( void )
 {
 
     EZDSP5502_init( );
+
     EZDSP5502_I2CGPIO_configLine(  SW0, IN );
     EZDSP5502_I2CGPIO_configLine(  SW1, IN );
 
+    initPLL();         // Initialize PLL
 
     lcdPage0(3); //começa com efeito 3 no LCD
     lcdPage1(currentStateSelection); //começa not selected no lcd
 
-    inputAic3204Config(); //configuração inicial do codec 3204
-
-    configAudioDma();  // Configure DMA for Audio tone
-
-
+    inputAic3204Config(48000); //configuração inicial do codec 3204
+    configAudioDma();
 
     while (1){
 
@@ -105,8 +89,11 @@ void main( void )
 
         if(currentStateSelection == selected){
            executeStateSelection(); //executa a captura do áudio com amostragem específica
+
         }
 
     }
 
 }
+
+

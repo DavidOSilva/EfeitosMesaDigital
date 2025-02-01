@@ -42,7 +42,7 @@ Int16 AIC3204_rset( Uint16 regnum, Uint16 regval )
 
 
 
-void inputAic3204Config(){
+void inputAic3204Config(Uint32 sf){
 
     /* Set to McBSP1 mode */
     EZDSP5502_I2CGPIO_configLine( BSP_SEL1, OUT );
@@ -51,6 +51,29 @@ void inputAic3204Config(){
     /* Enable McBSP1 */
     EZDSP5502_I2CGPIO_configLine( BSP_SEL1_ENn, OUT );
     EZDSP5502_I2CGPIO_writeLine(  BSP_SEL1_ENn, LOW );
+    Uint16 reg5;
+
+        // Determine P value and set R value = 1
+        switch (sf)
+        {
+            case 8000:
+                reg5 = (6<<4)|0x01;
+                break;
+            case 12000:
+                reg5 = (4<<4)|0x01;
+                break;
+            case 16000:
+                reg5 = (3<<4)|0x01;
+                break;
+            case 24000:
+                reg5 = (2<<4)|0x01;
+                break;
+            case 48000:
+                default:
+                reg5 = (1<<4)|0x01;
+                break;
+        }
+        reg5 |= 0x80;              // Enable PLL for desired AIC3204 sampling frequency
 
     EZDSP5502_wait( 100 );
 
@@ -68,11 +91,11 @@ void inputAic3204Config(){
        AIC3204_rset( 27, 0x0d );  // BCLK and WCLK are set as o/p; AIC3204(Master)
        AIC3204_rset( 28, 0x00 );  // Data ofset = 0
        AIC3204_rset( 4, 3 );      // PLL setting: PLLCLK <- MCLK, CODEC_CLKIN <-PLL CLK // TESTE
-           AIC3204_rset( 6, 7 );      // PLL setting: J=7
-           AIC3204_rset( 7, 0x06 );   // PLL setting: HI_BYTE(D=1680)
-           AIC3204_rset( 8, 0x90 );   // PLL setting: LO_BYTE(D=1680)
-           AIC3204_rset( 30, 0x9C );  // For 32 bit clocks per frame in Master mode ONLY            // BCLK=DAC_CLK/N =(12288000/8) = 1.536MHz = 32*fs
-           AIC3204_rset( 5, 0x91 );   //
+       AIC3204_rset( 6, 7 );      // PLL setting: J=7
+       AIC3204_rset( 7, 0x06 );   // PLL setting: HI_BYTE(D=1680)
+       AIC3204_rset( 8, 0x90 );   // PLL setting: LO_BYTE(D=1680)
+       AIC3204_rset( 30, 0x9C );  // For 32 bit clocks per frame in Master mode ONLY            // BCLK=DAC_CLK/N =(12288000/8) = 1.536MHz = 32*fs
+       AIC3204_rset( 5, reg5 );   // PLL setting: Power up PLL, R=1, P is determined from sampling freq.
        AIC3204_rset( 13, 0 );     // Hi_Byte(DOSR) for DOSR = 128 decimal or 0x0080 DAC oversamppling
        AIC3204_rset( 14, 0x80 );  // Lo_Byte(DOSR) for DOSR = 128 decimal or 0x0080
        AIC3204_rset( 20, 0x80 );  // AOSR for AOSR = 128 decimal or 0x0080 for decimation filters 1 to 6

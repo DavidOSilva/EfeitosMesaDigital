@@ -17,9 +17,9 @@
 /*                                                                            */
 /******************************************************************************/
 
--stack    0x2000      /* Primary stack size   */
+-stack    01000      /* Primary stack size   */
 -sysstack 0x1000      /* Secondary stack size */
--heap     0x2000      /* Heap area size       */
+-heap     0x1000      /* Heap area size       */
 
 -c                    /* Use C linking conventions: auto-init vars at runtime */
 -u _Reset             /* Force load of reset interrupt handler                */
@@ -81,5 +81,8 @@ SECTIONS
 
 	dmaTest    >  DARAM align(32) fill = 00h
 
+	data_br_buf >  DARAM align(32) fill = 00h
+
+	scratch_buf >  DARAM align(32) fill = 00h
    .ioport   >  IOPORT PAGE 2         /* Global & static ioport vars */
 }

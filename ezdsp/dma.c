@@ -1,37 +1,58 @@
 
 #include <stdio.h>
+#include <math.h>
 #include"ezdsp5502.h"
 #include"ezdsp5502_mcbsp.h"
 #include "csl_dma.h"
 #include "csl_mcbsp.h"
 #include "tistdtypes.h"
 
+#include "configs.h"
+
+
+extern Int16 apply_reverb(Int16 z, Int16 size);
+extern void pitchTeste(Int16* X, Int16 p, float pitch_factor, Int16* aux);
 
 //---------Glob constants---------
-#define N 512
-
+//#define N 4096
+Int16 retorno = 0;
+#define FIXED_SCALE 32768  // Escala de ponto fixo para Q15 (2^15)
+#define PITCH_SHIFT_FACTOR 0.5  // Exemplo de fator de pitch shift
 //---------Global data definition---------
 
 /* Define transmit and receive buffers */
 #pragma DATA_SECTION(transmition,"dmaTest")
-#pragma DATA_ALIGN(transmition, 8)
-Int16 transmition[N];
+#pragma DATA_ALIGN(transmition, 4096)
+Int16 transmition[sizeBuffer];
 
 #pragma DATA_SECTION(reception,"dmaTest")
-#pragma DATA_ALIGN(reception, 8);
-Int16 reception[N];
+#pragma DATA_ALIGN(reception, 4096);
+Int16 reception[sizeBuffer];
+
+#pragma DATA_SECTION(d_buffer, "scratch_buf");
+#pragma DATA_ALIGN(d_buffer, 4096);
+Int16  d_buffer[sizeBuffer];
 
 
-Int16 counter = 0;
 Int16 isActive = 0;
+Int16 firstTime = 1;
+Int16 transfer = 0;
+
 Uint16 xmtEventId, rcvEventId;
+
+volatile Int16 bufferPitch;
 extern void VECSTART(void);
-extern void dataMove(Int16 *, Int16 *);
+
+
 Uint16 old_intm;
 
 /* Protoype for interrupt functions */
 interrupt void dmaXmtIsr(void);
 interrupt void dmaRcvIsr(void);
+
+volatile state currentEffect;  // Efeito atual (modificado dinamicamente)
+
+
 
 
 DMA_Handle dmaHandleTx, dmaHandleRx;  // Handles para os canais de DMA de Tx e Rx
@@ -55,7 +76,7 @@ DMA_Config dmaTxConfig = {
         DMA_DMACCR_REPEAT_ALWAYS,     // Sem repetição automática
         DMA_DMACCR_AUTOINIT_ON,        // Auto inicialização ligada
         DMA_DMACCR_EN_STOP,            // Desabilitado inicialmente
-        DMA_DMACCR_PRIO_HI,            // Alta prioridade
+        DMA_DMACCR_PRIO_LOW,            // Alta prioridade
         DMA_DMACCR_FS_DISABLE,         // Sincronização por elemento
         DMA_DMACCR_SYNC_XEVT1          // Sincronizar com o evento de transmissão (XEVT)
     ),
@@ -72,7 +93,7 @@ DMA_Config dmaTxConfig = {
     0,                                 // Endereço superior da origem
     (DMA_AdrPtr)(MCBSP_ADDR(DXR11)),   // Endereço de destino (registrador DXR)
     0,                                 // Endereço superior do destino
-    N,                                 // Número de elementos por quadro
+    sizeBuffer,                        // Número de elementos por quadro
     1,                                 // Número de quadros
     0,                                 // Índice de quadro da origem
     0,                                 // Índice de elemento da origem
@@ -117,7 +138,7 @@ DMA_Config dmaRxConfig = {
     (DMA_AdrPtr)&reception,    // Endereço de destino (memória de áudio)
     0,                                 // Endereço superior do destino
     1,                                // Número de elementos por quadro
-    N,                                 // Número de quadros
+    sizeBuffer,                                 // Número de quadros
     0,                                 // Índice de quadro da origem
     0,                                 // Índice de elemento da origem
     0,                                 // Índice de quadro do destino
@@ -126,29 +147,93 @@ DMA_Config dmaRxConfig = {
 
 DMA_Handle dmaReception, dmaTransmition;
 volatile Uint16 transferComplete = FALSE;
-
+volatile Int32 counter1 = 0;
+volatile Int32 counter2 = 0;
+volatile int i=0;
+volatile Int16 x = 0;
 interrupt void dmaXmtIsr(void) {
+    IRQ_disable(xmtEventId);
+    //d_buffer[x] = reception[x];
+    IRQ_enable(xmtEventId);
 
 }
+#define PI 3.1415926
+
+Int16 clamp(Int16 value) {
+    if (value > 32767) return 32767;
+    if (value < -32768) return -32768;
+    return (Int16)value;
+}
+
 
 interrupt void dmaRcvIsr(void) {
 
-    IRQ_disable(rcvEventId);       // Desabilita o evento de interrupção da recepção.
-   // Int16 i;
-    dataMove(reception,transmition);
+    IRQ_disable(rcvEventId);
+
+            if(currentEffect == effect3 ) {
+                if(x < sizeBuffer){
+                    bufferPitch = 4096;
+                  transmition[x] =  apply_reverb(reception[x], 1024);
+                  x++;
+                    }else{
+                        x=0;
+                    }
+                }else if(currentEffect == effect6 ){
+                    if(x < sizeBuffer){
+                        bufferPitch = 4096;
+                        transmition[x] =  apply_reverb(reception[x],2048);
+
+                         x++;
+                      }else{
+                          x=0;
+                    }
+                }else if(currentEffect == effect9 ){
+                     if(x < sizeBuffer){
+                         bufferPitch = 4096;
+                      transmition[x] =  apply_reverb(reception[x],4096);
+
+                     x++;
+                    }else{
+                      x=0;
+                    }
+                  }else if(currentEffect == effect24 ){
+                    if(x < sizeBuffer){
+                        bufferPitch = 4096;
+                       transmition[x] = reception[x];
+
+                         x++;
+                      }else{
+                          x=0;
+                    }
+                }else if(currentEffect == effect21 ){
+                    if(x < sizeBuffer){
+
+
+                       // d_buffer[x] =  apply_reverb(reception[x],1024);
+                        //dmaTxConfig.dmacen = 2729;
+                        pitchTeste(reception,x, 1.5, transmition);
+
+                        //transmition[x] =  d_buffer[x];
+                       x++;
+                    }else{
+                       x=0;
+                    }
+                }
 
     IRQ_enable(rcvEventId);
-}
 
+
+}
 
 void configAudioDma (void)
 {
     CSL_init();
 
     int i = 0;
-    for (i = 0; i <= N; i++) {
+    for (i = 0; i < sizeBuffer; i++) {
            transmition[i] =  0;
            reception[i] = 0;
+           d_buffer[i] = 0;
        }
 
     IRQ_setVecs((Uint32)(&VECSTART));
@@ -193,7 +278,8 @@ void configAudioDma (void)
 
 }
 
-void startAudioDma (void)
+
+void startAudioDma (int effect)
 {
 
     if(!isActive){
@@ -201,6 +287,8 @@ void startAudioDma (void)
         DMA_start(dmaTransmition); // Begin Transfer
         EZDSP5502_MCBSP_init( );
         isActive = 1;
+        currentEffect = effect;
+
     }
 
 
