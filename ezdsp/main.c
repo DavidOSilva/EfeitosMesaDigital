@@ -16,14 +16,15 @@ extern void startAudioDma();
 extern void stopAudioDma();
 extern void initPLL(void);
 
-void checkSwitch(void);
+//void checkSwitch(void);
 
-state currentStateEffect = effect3;
+extern state currentEffect = effect3;
 stateSelection currentStateSelection = notSelected;
 
 void executeStateSelection(){
 
-    startAudioDma(currentStateEffect);
+
+    startAudioDma(currentEffect);
 }
 void transitionSelection(){
     if( currentStateSelection == selected){
@@ -40,16 +41,16 @@ void transitionSelection(){
 
 void executeStateEffect(){
 
-    lcdPage0(currentStateEffect);
+    lcdPage0(currentEffect);
 
 }
 
 void transitionEffect(){
     if (currentStateSelection == notSelected) {
-        if( currentStateEffect == effect24){
-            currentStateEffect = effect3;
+        if( currentEffect == effect24){
+            currentEffect = effect3;
         }else{
-            currentStateEffect = currentStateEffect + 3;
+            currentEffect = currentEffect + 3;
         }
         executeStateEffect();
 
@@ -69,20 +70,17 @@ void checkSwitch(){
 
 void main( void )
 {
-
     EZDSP5502_init( );
+    initPLL();         // Initialize PLL
 
     EZDSP5502_I2CGPIO_configLine(  SW0, IN );
     EZDSP5502_I2CGPIO_configLine(  SW1, IN );
 
-    initPLL();         // Initialize PLL
 
-    lcdPage0(3); //começa com efeito 3 no LCD
+    lcdPage0(currentEffect); //começa com efeito 3 no LCD
     lcdPage1(currentStateSelection); //começa not selected no lcd
 
     inputAic3204Config(48000); //configuração inicial do codec 3204
-    configAudioDma();
-
     while (1){
 
         checkSwitch(); //checa se algum botão foi pressionado

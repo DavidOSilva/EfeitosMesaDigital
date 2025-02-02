@@ -13,30 +13,54 @@ volatile int writeIndex = 0;
 #pragma DATA_SECTION(delayBuffer,"data_br_buf")
 #pragma DATA_ALIGN(delayBuffer, 2048);
 
-
+#define PI 3.14159265358979323846
 Int16 delayBuffer[maxBufferSizeReverb];
+
+void initReverb(){
+    int i;
+
+    for(i=0; i<maxBufferSizeReverb;i++){
+        delayBuffer[i] = 0;
+    }
+}
+Int16 readIndex = 0;
 
 Int16 apply_reverb(Int16 input,Int16 bufferSizeReverb) {
 
-    Int16 readIndex;
 
     readIndex = (writeIndex - DELAY_SAMPLES  + bufferSizeReverb) % bufferSizeReverb;
 
     Int16 delayedSample = delayBuffer[readIndex];
 
 
-
     Int16 reverbSample = input + (Int16)(delayedSample * DECAY_FACTOR)
                                   + (Int16)(delayBuffer[(readIndex + 103) % bufferSizeReverb] * (DECAY_FACTOR * 0.5))
-                                  + (Int16)(delayBuffer[(readIndex + 233) % bufferSizeReverb] * (DECAY_FACTOR * 0.25))
-                                  + (Int16)(delayBuffer[(readIndex + 433) % bufferSizeReverb] * (DECAY_FACTOR * 0.15));
+                                  + (Int16)(delayBuffer[(readIndex + 233) % bufferSizeReverb] * (DECAY_FACTOR * 0.25));
 
-    delayBuffer[writeIndex] = (Int16)(0.7 * delayBuffer[writeIndex]  + (1 - 0.8) * reverbSample );
-
-    //delayBuffer[writeIndex] = reverbSample;
+    delayBuffer[writeIndex] = (Int16)(0.7 * delayBuffer[writeIndex]  + (1 - 0.7) * reverbSample );
 
     writeIndex = (writeIndex + 1) % bufferSizeReverb;
 
     return reverbSample;
 }
+
+Int16 apply_reverb2(Int16 input,Int16 bufferSizeReverb) {
+
+
+    readIndex = (writeIndex - DELAY_SAMPLES  + bufferSizeReverb) % bufferSizeReverb;
+
+    Int16 delayedSample = delayBuffer[readIndex];
+
+    Int16 reverbSample = input + (Int16)(delayedSample * DECAY_FACTOR);
+
+    delayBuffer[writeIndex] = reverbSample;
+
+    writeIndex = (writeIndex + 1) % bufferSizeReverb;
+
+    return reverbSample;
+}
+
+
+
+
 

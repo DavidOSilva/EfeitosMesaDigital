@@ -6,20 +6,14 @@
 #include "csl_dma.h"
 #include "csl_mcbsp.h"
 #include "tistdtypes.h"
-
 #include "configs.h"
-
 
 extern Int16 apply_reverb(Int16 z, Int16 size);
 extern void pitchTeste(Int16* X, Int16 p, float pitch_factor, Int16* aux);
+extern void checkSwitch();
+extern Int16 applyChorus(Int16 j, Int16 size);
 
-//---------Glob constants---------
-//#define N 4096
-Int16 retorno = 0;
-#define FIXED_SCALE 32768  // Escala de ponto fixo para Q15 (2^15)
-#define PITCH_SHIFT_FACTOR 0.5  // Exemplo de fator de pitch shift
-//---------Global data definition---------
-
+Int16 sizeBufferTransmition = 4096;
 /* Define transmit and receive buffers */
 #pragma DATA_SECTION(transmition,"dmaTest")
 #pragma DATA_ALIGN(transmition, 4096)
@@ -50,14 +44,11 @@ Uint16 old_intm;
 interrupt void dmaXmtIsr(void);
 interrupt void dmaRcvIsr(void);
 
-volatile state currentEffect;  // Efeito atual (modificado dinamicamente)
-
-
+extern volatile state currentEffect;  // Efeito atual (modificado dinamicamente)
 
 
 DMA_Handle dmaHandleTx, dmaHandleRx;  // Handles para os canais de DMA de Tx e Rx
 
-// Configuração do DMA para Transmissão (Tx)
 DMA_Config dmaTxConfig = {
     DMA_DMACSDP_RMK(
         DMA_DMACSDP_DSTBEN_NOBURST,    // Sem burst de destino
@@ -146,11 +137,11 @@ DMA_Config dmaRxConfig = {
 };
 
 DMA_Handle dmaReception, dmaTransmition;
-volatile Uint16 transferComplete = FALSE;
 volatile Int32 counter1 = 0;
 volatile Int32 counter2 = 0;
 volatile int i=0;
 volatile Int16 x = 0;
+
 interrupt void dmaXmtIsr(void) {
     IRQ_disable(xmtEventId);
     //d_buffer[x] = reception[x];
@@ -172,16 +163,14 @@ interrupt void dmaRcvIsr(void) {
 
             if(currentEffect == effect3 ) {
                 if(x < sizeBuffer){
-                    bufferPitch = 4096;
-                  transmition[x] =  apply_reverb(reception[x], 1024);
+                  transmition[x] =  apply_reverb(reception[x], 500);
                   x++;
                     }else{
                         x=0;
                     }
                 }else if(currentEffect == effect6 ){
                     if(x < sizeBuffer){
-                        bufferPitch = 4096;
-                        transmition[x] =  apply_reverb(reception[x],2048);
+                        transmition[x] =  apply_reverb(reception[x],1024);
 
                          x++;
                       }else{
@@ -189,34 +178,70 @@ interrupt void dmaRcvIsr(void) {
                     }
                 }else if(currentEffect == effect9 ){
                      if(x < sizeBuffer){
-                         bufferPitch = 4096;
-                      transmition[x] =  apply_reverb(reception[x],4096);
+                      transmition[x] =  apply_reverb(reception[x],2048);
 
                      x++;
                     }else{
                       x=0;
                     }
-                  }else if(currentEffect == effect24 ){
+                  }else if(currentEffect == effect12 ){
+                      if(x < sizeBuffer){
+                       transmition[x] =  apply_reverb(reception[x],3500);
+
+                      x++;
+                     }else{
+                       x=0;
+                     }
+                   }else if(currentEffect == effect15 ){
+                       if(x < sizeBuffer){
+                        transmition[x] =  apply_reverb(reception[x],4096);
+
+                       x++;
+                      }else{
+                        x=0;
+                      }
+                    }else if(currentEffect == effect18 ){
+                        counter1++;
+                   if(x < sizeBuffer){
+
+                       pitchTeste(reception,x, 2.0, d_buffer);
+                       transmition[x] =  apply_reverb(d_buffer[x], 2048);
+
+                       if(counter1 == 70000){
+
+                           checkSwitch();
+                           counter1 = 0;
+                       }
+
+
+                       x++;
+                    }else{
+                       x=0;
+                     }
+                }else if(currentEffect == effect21 ){
+                    counter1++;
                     if(x < sizeBuffer){
-                        bufferPitch = 4096;
-                       transmition[x] = reception[x];
+
+                        pitchTeste(reception,x, 1.5, d_buffer);
+                        transmition[x] =  apply_reverb2(d_buffer[x],4000);
+
+                        if(counter1 == 70000){
+                            checkSwitch();
+                            counter1=0;
+                        }
+                        x++;
+                    }else{
+                       x=0;
+
+                    }
+                }else if(currentEffect == effect24 ){
+                    if(x < sizeBuffer){
+
+                       transmition[x] = reception[x] * 0.7;
 
                          x++;
                       }else{
                           x=0;
-                    }
-                }else if(currentEffect == effect21 ){
-                    if(x < sizeBuffer){
-
-
-                       // d_buffer[x] =  apply_reverb(reception[x],1024);
-                        //dmaTxConfig.dmacen = 2729;
-                        pitchTeste(reception,x, 1.5, transmition);
-
-                        //transmition[x] =  d_buffer[x];
-                       x++;
-                    }else{
-                       x=0;
                     }
                 }
 
@@ -225,7 +250,38 @@ interrupt void dmaRcvIsr(void) {
 
 }
 
-void configAudioDma (void)
+void configInterrupts(){
+
+        IRQ_setVecs((Uint32)(&VECSTART));
+
+
+    /* Get interrupt event associated with DMA receive and transmit */
+      xmtEventId = DMA_getEventId(dmaTransmition);
+      rcvEventId = DMA_getEventId(dmaReception);
+
+      /* Temporarily disable interrupts and clear any pending */
+      /* interrupts for MCBSP transmit */
+      old_intm = IRQ_globalDisable();
+
+      /* Clear any pending interrupts for DMA channels */
+      IRQ_clear(xmtEventId);
+      IRQ_clear(rcvEventId);
+
+      /* Enable DMA interrupt in IER register */
+      IRQ_enable(xmtEventId);
+      IRQ_enable(rcvEventId);
+
+      /* Place DMA interrupt service addresses at associate vector */
+      IRQ_plug(xmtEventId,&dmaXmtIsr);
+      IRQ_plug(rcvEventId,&dmaRcvIsr);
+
+
+      IRQ_globalEnable();
+
+}
+
+
+void configAudioDma (Uint16 size)
 {
     CSL_init();
 
@@ -236,7 +292,6 @@ void configAudioDma (void)
            d_buffer[i] = 0;
        }
 
-    IRQ_setVecs((Uint32)(&VECSTART));
 
 
     dmaTxConfig.dmacssal = (DMA_AdrPtr)(((Uint32)&transmition) << 1); //origem informação armazenada
@@ -246,48 +301,45 @@ void configAudioDma (void)
     dmaRxConfig.dmacssal = (DMA_AdrPtr)(((Uint32)MCBSP_ADDR(DRR11)) << 1); // (origem)
     dmaRxConfig.dmacdsal = (DMA_AdrPtr)(((Uint32)&reception) << 1); // (destino)
 
+    dmaTxConfig.dmacen = size;
 
-    dmaTransmition = DMA_open(DMA_CHA2, DMA_OPEN_RESET);  // Open DMA Channel 0
+    dmaTransmition = DMA_open(DMA_CHA2, 0);  // Open DMA Channel 0
     DMA_config(dmaTransmition, &dmaTxConfig);   // Configure Channel
 
-    dmaReception = DMA_open(DMA_CHA1, DMA_OPEN_RESET);  // Open DMA Channel 1
+    dmaReception = DMA_open(DMA_CHA1, 0);  // Open DMA Channel 1
     DMA_config(dmaReception, &dmaRxConfig);   // Configure Channel
 
-    /* Get interrupt event associated with DMA receive and transmit */
-    xmtEventId = DMA_getEventId(dmaTransmition);
-    rcvEventId = DMA_getEventId(dmaReception);
 
-    /* Temporarily disable interrupts and clear any pending */
-    /* interrupts for MCBSP transmit */
-    old_intm = IRQ_globalDisable();
-
-    /* Clear any pending interrupts for DMA channels */
-    IRQ_clear(xmtEventId);
-    IRQ_clear(rcvEventId);
-
-    /* Enable DMA interrupt in IER register */
-    IRQ_enable(xmtEventId);
-    IRQ_enable(rcvEventId);
-
-    /* Place DMA interrupt service addresses at associate vector */
-    IRQ_plug(xmtEventId,&dmaXmtIsr);
-    IRQ_plug(rcvEventId,&dmaRcvIsr);
-
-
-    IRQ_globalEnable();
+        configInterrupts();
+        //firstTime = 0;
 
 }
 
 
-void startAudioDma (int effect)
-{
 
+void startAudioDma (Int16 effect)
+{
+    currentEffect = effect;
     if(!isActive){
+        if (effect == effect3 || effect == effect6 || effect == effect9 || effect == effect12 || effect == effect15 || effect == effect24) {
+
+            configAudioDma(4096);
+
+        }else if(effect == effect18){
+
+            configAudioDma(2047);
+        }
+        else if(effect == effect21){
+
+            configAudioDma(2729);
+         }
+
+        x = 0;
+        initReverb();
         DMA_start(dmaReception); // Begin Transfer
         DMA_start(dmaTransmition); // Begin Transfer
         EZDSP5502_MCBSP_init( );
         isActive = 1;
-        currentEffect = effect;
 
     }
 
@@ -296,8 +348,15 @@ void startAudioDma (int effect)
 
 void stopAudioDma (void)
 {
-    DMA_stop(dmaTransmition);  // Stop Transfer
-    DMA_stop(dmaReception);  // Stop Transfer
+
+    DMA_stop(dmaTransmition);
+    DMA_stop(dmaReception);
+    DMA_pause(dmaTransmition);
+    DMA_pause(dmaReception);
+    DMA_close(dmaTransmition);
+    DMA_close(dmaReception);
+
+
     isActive = 0;
 
 }

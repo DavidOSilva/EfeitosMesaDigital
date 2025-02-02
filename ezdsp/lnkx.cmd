@@ -84,5 +84,7 @@ SECTIONS
 	data_br_buf >  DARAM align(32) fill = 00h
 
 	scratch_buf >  DARAM align(32) fill = 00h
+
+
    .ioport   >  IOPORT PAGE 2         /* Global & static ioport vars */
 }

@@ -376,7 +376,8 @@ Int16 lcdPage0(int effect) {
 
     spaceBlank(5);
 
-    printLetter(0x3E, 0x49, 0x49, 0x49); // 3
+    // printLetter(0x3E, 0x49, 0x49, 0x49); // 3
+    printLetter(0x40, 0x7F, 0x42, 0x00); // 1
     printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
 
     spaceBlank(23);
@@ -398,7 +399,8 @@ Int16 lcdPage0(int effect) {
     printLetterT('E');
     printLetterT('R');
     spaceBlank(2);
-    printLetter(0x71, 0x51, 0x52, 0x3C); // 6
+   // printLetter(0x71, 0x51, 0x52, 0x3C); // 6
+    printLetter(0x46, 0x49, 0x51, 0x62); // 2
     printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
 
     // spaceBlank(10);
@@ -420,7 +422,8 @@ Int16 lcdPage0(int effect) {
     printLetterT('E');
     printLetterT('R');
     spaceBlank(5);
-    printLetter(0xFE, 0x51, 0x51, 0x4E); // 9
+   // printLetter(0xFE, 0x51, 0x51, 0x4E); // 9
+     printLetter(0x3E, 0x49, 0x49, 0x49); // 3
     printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
 
     spaceBlank(43);
@@ -442,8 +445,8 @@ Int16 lcdPage0(int effect) {
     printLetterT('E');
     printLetterT('R');
     spaceBlank(2);
-    printLetter(0x46, 0x49, 0x51, 0x62); // 2
-    printLetter(0x40, 0x7F, 0x42, 0x00); // 1
+    printLetter(0xFF, 0x08, 0x08, 0x0F);  // 4 corrigido
+    printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
 
     spaceBlank(43);
     break;
@@ -464,7 +467,7 @@ Int16 lcdPage0(int effect) {
     printLetterT('R');
     spaceBlank(2);
     printLetter(0x31, 0x49, 0x49, 0x2F); // 5
-    printLetter(0x40, 0x7F, 0x42, 0x00); // 1
+    printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
 
     spaceBlank(43);
     break;
@@ -477,8 +480,9 @@ Int16 lcdPage0(int effect) {
     printLetterT('H');
     printLetterT('C');
     spaceBlank(3);
-    printLetter(0x36, 0x49, 0x49, 0x36); // 8
-    printLetter(0x40, 0x7F, 0x42, 0x00); // 1
+  //  printLetter(0x36, 0x49, 0x49, 0x36); // 8
+     printLetter(0x71, 0x51, 0x52, 0x3C); // 6
+    printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
 
     spaceBlank(43);
     break;
@@ -496,8 +500,11 @@ Int16 lcdPage0(int effect) {
     printLetterT('R');
     spaceBlank(3);
 
-    printLetter(0x40, 0x7F, 0x42, 0x00); // 1
-    printLetter(0x46, 0x49, 0x51, 0x62); // 2
+   // printLetter(0x40, 0x7F, 0x42, 0x00); // 1
+   // printLetter(0x46, 0x49, 0x51, 0x62); // 2
+    printLetter(0xFF, 0x01, 0x01, 0x0F);  // 7 corrigido
+    printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
+
     spaceBlank(43);
     break;
   case 24:
@@ -508,8 +515,8 @@ Int16 lcdPage0(int effect) {
     printLetterT('V');
     spaceBlank(3);
 
-    printLetter(0x7F, 0x12, 0x14, 0x18); // 1
-    printLetter(0x46, 0x49, 0x51, 0x62); // 2
+    printLetter(0xFF, 0x91, 0x91, 0xFF);  // 8 corrigido
+    printLetter(0x3E, 0x41, 0x41, 0x3E); // 0
     spaceBlank(43);
     break;
 

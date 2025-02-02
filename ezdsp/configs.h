@@ -17,7 +17,6 @@
 
 
 #define sizeBuffer 4096
-
 #define M_PI 3.14159
 
 typedef enum{
