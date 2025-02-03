@@ -44,13 +44,9 @@ def radioVoice(inputPath):
     tfm.pitch(n_semitones=8, quick=False)
     tfm.pad(start_duration=0.6, end_duration=1.7)
     reverb_params = {
-    'reverberance': 60,
-    'room_scale': 80,
-    'pre_delay': 50,
-    'wet_gain': -10,
-    'stereo_depth': 100,
-    'high_freq_damping': 50
-     }
+        'reverberance': 90, 'room_scale': 90, 'pre_delay': 50,
+        'wet_gain': -10, 'stereo_depth': 100, 'high_freq_damping': 50
+    }
     tfm.reverb(**reverb_params)
     tfm.vol(0.5)
     tfm.build(inputPath, 'radioVoice.wav')
